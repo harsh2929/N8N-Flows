@@ -1,0 +1,173 @@
+{
+  "name": "Hourly Stats Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "3ab6560b-7a57-4c4b-a8db-7a0d3fb29a1d",
+      "name": "Hourly Trigger1",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        80,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "newsletters"
+      },
+      "id": "9bbfafa1-2173-455f-8374-85c685febd12",
+      "name": "Get Recent Editions1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        360,
+        280
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2VPI6B7INWdprysS",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 2,
+        "options": {}
+      },
+      "id": "5b2dad15-de4b-4511-8633-d00ca7e28ea4",
+      "name": "Split Items1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        620,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "newsletters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "broadcast_id",
+              "condition": "eq",
+              "keyValue": "={{$json.broadcast.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "open_rate",
+              "fieldValue": "={{$json.broadcast.stats.open_rate}}"
+            },
+            {
+              "fieldId": "click_rate",
+              "fieldValue": "={{$json.broadcast.stats.click_rate}}"
+            }
+          ]
+        }
+      },
+      "id": "a6627ea1-a29a-4de0-b876-fd1d3860f4c3",
+      "name": "Update Edition Row1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        280
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2VPI6B7INWdprysS",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.kit.com/v4/broadcasts/{{$json.broadcast_id}}/stats",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "X-Kit-Api-Key",
+              "value": "kit_2a359f629eef7bc7a7e43582c5e77373"
+            }
+          ]
+        }
+      },
+      "id": "9cd5cf64-17c8-4bc5-bb9d-44f9bbf9fc82",
+      "name": "CK Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        820,
+        560
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Hourly Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Editions1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Editions1": {
+      "main": [
+        [
+          {
+            "node": "Split Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Items1": {
+      "main": [
+        [
+          {
+            "node": "CK Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CK Stats": {
+      "main": [
+        [
+          {
+            "node": "Update Edition Row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "3gWhz09DhjI0EmWC"
+  },
+  "versionId": "de96019e-f1d3-42b6-951a-4254e1f807cb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cd1e3aaecc754fb6455da4598dd8dad0b4c538c0c573f2a9d5e0f5e197d8ff5b"
+  },
+  "id": "KUEVjxKzoEs74UWE",
+  "tags": []
+}

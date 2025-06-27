@@ -1,0 +1,64 @@
+{
+  "name": "Error Slack",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c5014cb9-0e55-437b-8480-5f43cf6ecb0b",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        520,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "channel": "n8n",
+        "text": "=hey we've encountered an issue,  {{ $json.execution.error.message }}{{ $json.execution.error.stack }}{{ $json.execution.mode }}{{ $json.execution.lastNodeExecuted }}",
+        "otherOptions": {},
+        "attachments": []
+      },
+      "id": "2cd09219-70cd-47e0-bba5-a083ee0a0367",
+      "name": "Slack – Send Message",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        760,
+        100
+      ],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "peIIKK3Ou9wB1uYW",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Slack – Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cfbcd09e-355e-478d-bf22-e94d615f0e1c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cd1e3aaecc754fb6455da4598dd8dad0b4c538c0c573f2a9d5e0f5e197d8ff5b"
+  },
+  "id": "3gWhz09DhjI0EmWC",
+  "tags": []
+}

@@ -1,0 +1,719 @@
+{
+  "name": "Daily Newsletter",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        }
+      },
+      "id": "c19fc070-1ca3-47ac-a75a-fdaff3d030e5",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://deepgram.com/blog.xml",
+        "options": {}
+      },
+      "id": "5fc5ecfd-bdb8-4ffd-9660-53da461d72e6",
+      "name": "RSS – Deepgram",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://github.com/openai/whisper/releases.atom",
+        "options": {}
+      },
+      "id": "082bb526-667a-48e9-a136-89c6fb82fc39",
+      "name": "RSS – Whisper Dev",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://aws.amazon.com/blogs/machine-learning/category/artificial-intelligence/amazon-transcribe/feed/",
+        "options": {}
+      },
+      "id": "0fbd58e4-01d1-4098-88c6-bcc3715da2cb",
+      "name": "RSS – Rev AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://hn.algolia.com/api/v1/search?query=speech+to+text&tags=story",
+        "options": {}
+      },
+      "id": "c9e44cf5-883e-4078-83ca-76e33e6b01bc",
+      "name": "Hacker News API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const seen = new Set();\nreturn items.filter(i => {\n  const k = (i.json.title || i.json.name || '') + (i.json.url || i.json.link || '');\n  if (seen.has(k)) return false;\n  seen.add(k);\n  return true;\n});"
+      },
+      "id": "f561e34e-4b8e-40ec-88c9-a3514e1402a3",
+      "name": "Deduplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{stories:items.map(i=>({title:i.json.title||i.json.name,url:i.json.url||i.json.link,summary:i.json.summary||i.json.contentSnippet||i.json.tagline||''}))}}];"
+      },
+      "id": "cfdd6457-5ef5-433c-b319-ba5f47b4f891",
+      "name": "Prepare Story Array",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/*  Robustly extract the stories array from Gemini / LangChain output  */\n\nconst raw =\n  $json.output ??\n  ($json.candidates?.[0]?.content?.parts?.[0]?.text) ??\n  '';\n\nlet cleaned = raw.trim()\n  // strip triple-back-tick fences  ``` or ```json\n  .replace(/^```(?:json)?\\s*/i, '')\n  .replace(/\\s*```$/, '')\n  // remove smart quotes that sneak in\n  .replace(/[“”]/g, '\"')\n  // remove trailing commas before ] or }\n  .replace(/,\\s*([\\]\\}])/g, '$1');\n\nlet stories;\ntry {\n  stories = JSON.parse(cleaned);\n} catch (err) {\n  // fallback: try to locate the first [  … ] bracketed array\n  const match = cleaned.match(/\\[[\\s\\S]+\\]/);\n  if (match) {\n    try { stories = JSON.parse(match[0]); } catch { stories = []; }\n  } else {\n    stories = [];\n  }\n}\n\nreturn [\n  {\n    json: { stories }\n  }\n];\n"
+      },
+      "id": "d9137adb-5f40-4154-8192-81793cd478f6",
+      "name": "Parse Ranked JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$json.candidates[0].content.parts[0].text;\nconst [html,text='']=raw.split(/---text---/i);\nreturn [{json:{html:html.trim(),text:text.replace(/<[^>]+>/g,' ').trim()}}];"
+      },
+      "id": "a8587472-7b93-4322-8faf-0f497a8e4006",
+      "name": "Split HTML / Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        -500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const t=$json.text;\nconst w=t.split(/\\s+/).length;\nconst s=Math.max(1,t.split(/[.!?]/).length-1);\nconst syl=t.replace(/[^aeiouy]/gi,'').length||1;\nconst fk=(206.835-1.015*(w/s)-84.6*(syl/w)).toFixed(1);\nreturn [{json:{html:$json.html,text:t,fk}}];"
+      },
+      "id": "3e14d2e8-6938-4553-8b3f-ad26ddd46677",
+      "name": "Readability Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "subject",
+              "value": "={{`The Transcription Times – ` + new Date().toISOString().slice(0,10)}}"
+            },
+            {
+              "name": "html",
+              "value": "={{$json.html}}"
+            },
+            {
+              "name": "text",
+              "value": "={{$json.text}}"
+            },
+            {
+              "name": "readability",
+              "value": "={{$json.fk}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6ef955fd-1fb3-459c-ae14-4fc387164c0f",
+      "name": "Package Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/*****************************************************************\n * Build CK Payload – Kit API v4\n *  • Hard-coded API key (free plan)\n *  • Removes ``` fences around html / text\n ****************************************************************/\n\nconst KIT_API_KEY  = 'kit_2a359f629eef7bc7a7e43582c5e77373';  // v4 key\nconst SEND_FROM_ID = 12345;                                   // confirmed address ID\nconst TEMPLATE_ID  = 67890;                                   // template ID\n\n// helper to strip ``` fences and smart quotes\nfunction stripFences(raw = '') {\n  return raw\n    .trim()\n    .replace(/^```(?:html|text)?\\s*/i, '')   // opening\n    .replace(/\\s*```$/, '')                  // closing\n    .replace(/[“”]/g, '\"');                  // smart quotes\n}\n\nconst rawHtml = $node['Package Output'].json.html || '';\nconst rawTxt  = $node['Package Output'].json.text || '';\n\nconst htmlContent  = stripFences(rawHtml);\nconst textContent  = stripFences(rawTxt);\n\nreturn [\n  {\n    json: {\n      api_key: KIT_API_KEY,\n      broadcast: {\n        subject:              $node['Package Output'].json.subject,\n        html_content:         htmlContent,\n        plain_text_content:   textContent,\n        description:          $input.first().json.output,\n        public:               false,\n        send_from_id:         SEND_FROM_ID,\n        email_template_id:    TEMPLATE_ID,\n        send_at:              null           // draft; set ISO to schedule / send now\n      }\n    }\n  }\n];\n"
+      },
+      "id": "6b90a392-57e5-4444-9db1-af339566d335",
+      "name": "Build CK Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/* Extract broadcast_id plus metadata for Supabase */\n\nconst broadcastId = $json.broadcast?.id ?? null;\nconst subj        = $node['Package Output']?.json?.subject ?? '';\nconst read        = $node['Package Output']?.json?.readability ?? null;\nconst storiesArr  = $node['Parse Ranked JSON']?.json?.stories ?? [];\n\nreturn [\n  {\n    json: {\n      broadcast_id: broadcastId,\n      subject:      subj,\n      readability:  read,\n      stories:      storiesArr\n    }\n  }\n];\n"
+      },
+      "id": "751960e9-b12d-44ae-8232-f6eb9017e682",
+      "name": "Extract Broadcast ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2300,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "newsletters",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{$json.subject}}"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{new Date().toISOString()}}"
+            },
+            {
+              "fieldId": "stories",
+              "fieldValue": "={{JSON.stringify($json.stories)}}"
+            },
+            {
+              "fieldId": "readability",
+              "fieldValue": "={{$json.readability}}"
+            },
+            {
+              "fieldId": "broadcast_id",
+              "fieldValue": "={{$json.broadcast_id}}"
+            }
+          ]
+        }
+      },
+      "id": "0b9757fb-52ee-492c-a3ec-c7363d953567",
+      "name": "Insert Edition Row",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        480
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2VPI6B7INWdprysS",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        280,
+        -240
+      ],
+      "id": "79022f35-92c6-47b6-918e-30bc6103d308",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/speechtotext/.rss",
+        "options": {}
+      },
+      "id": "3da7f7c7-02a0-49cc-87f2-bed603dd6cc0",
+      "name": "RSS – Reddit",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=speech+to+text+AI&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "6e4b9bdc-3f59-4b18-9e73-ad57b3901533",
+      "name": "RSS – Google",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyD98GGrNaM2KaJ1QbGVk6VfUXu7DayFdsk",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={{JSON.stringify({contents:[{parts:[{text:`Draft today's edition of **The Transcription Times**. Output responsive HTML email with inline styles, then \\n---text---\\n plain-text. Requirements:\\n• Friendly intro ≤70 words\\n• For each story (JSON provided) output <strong>headline</strong>, one-sentence insight, and a (read) link with utm_campaign=newsletter.\\n• End with CTA 'Forward this email'.\\nStories:${JSON.stringify($json.stories)}` }]}]})}}"
+      },
+      "id": "95c3956c-65ce-4aee-a8a9-80db20ff8c17",
+      "name": "Generate Title",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{JSON.stringify({contents:[{parts:[{text:`You are an editorial AI. From the JSON array below, pick EXACTLY 7 items most relevant to speech-to-text engineers and return ONLY JSON array [{title,url,summary,whyImportant}]:\\n\\n${JSON.stringify($json.stories)}` }]}]})}}    Return only valid JSON according to what ive said to you. ",
+        "options": {}
+      },
+      "id": "dca4a39d-0de0-4936-8a39-9a87bdc42a7a",
+      "name": "Gap Analysis Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        520,
+        -540
+      ],
+      "connections": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "d5175524-25b8-4ddb-9a2f-c3b374edfd9f",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.1-70b-instruct",
+        "options": {}
+      },
+      "id": "ba7bbbc2-426a-4227-ba4d-7d2fdc36dc18",
+      "name": "OpenRouter Chat Model5",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        900,
+        120
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "Qc1OkUuZkxYKWU0g",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.kit.com/v4/broadcasts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=X-Kit-Api-Key",
+              "value": "={{ $json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $json.broadcast.html_content }}"
+            },
+            {
+              "name": "subject ",
+              "value": "={{ $json.broadcast.subject }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json.broadcast.description }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2060,
+        -80
+      ],
+      "id": "7ba3066b-7080-447e-993c-a092b1f492d4",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "text": "={\"contents\":[{\"parts\":[{\"text\":\"Write an SEO-friendly blog title under 60 characters that targets: {{ $json.text }}\"}]}]}",
+        "options": {}
+      },
+      "id": "1148c65d-1f4b-4b8b-85a8-832b425e02be",
+      "name": "Gap Analysis Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        460
+      ],
+      "connections": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "d5175524-25b8-4ddb-9a2f-c3b374edfd9f",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.1-70b-instruct",
+        "options": {}
+      },
+      "id": "229f3c94-4362-4897-9bf6-92b00d4fe03b",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        -380
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "Qc1OkUuZkxYKWU0g",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS – Deepgram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS – Whisper Dev",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS – Rev AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hacker News API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS – Reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS – Google",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS – Deepgram": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS – Whisper Dev": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "Prepare Story Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Story Array": {
+      "main": [
+        [
+          {
+            "node": "Gap Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Ranked JSON": {
+      "main": [
+        [
+          {
+            "node": "Generate Title",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split HTML / Text": {
+      "main": [
+        [
+          {
+            "node": "Readability Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Readability Guard": {
+      "main": [
+        [
+          {
+            "node": "Package Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Package Output": {
+      "main": [
+        [
+          {
+            "node": "Gap Analysis Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build CK Payload": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Broadcast ID": {
+      "main": [
+        [
+          {
+            "node": "Insert Edition Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS – Rev AI": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Hacker News API": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "RSS – Reddit": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "RSS – Google": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Generate Title": {
+      "main": [
+        [
+          {
+            "node": "Split HTML / Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gap Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gap Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Ranked JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gap Analysis Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gap Analysis Agent1": {
+      "main": [
+        [
+          {
+            "node": "Build CK Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract Broadcast ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "3gWhz09DhjI0EmWC"
+  },
+  "versionId": "349c6a42-3b3d-431d-ac3c-0a660a2b38a4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cd1e3aaecc754fb6455da4598dd8dad0b4c538c0c573f2a9d5e0f5e197d8ff5b"
+  },
+  "id": "1qRsCIpp3xNKNxm8",
+  "tags": []
+}
