@@ -1,6 +1,6 @@
 # The Transcription Times – Automated Newsletter System
 
-**Live newsletter** → <https://harsh-kumar-4.kit.com/posts/>  
+**Live newsletter example** → <https://harsh-kumar-4.kit.com/posts/broadcast-6>  
 **Subscribe** → <https://harsh-kumar-4.kit.com/subscribe>
 
 ### Tech stack
